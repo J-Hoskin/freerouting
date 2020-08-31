@@ -241,9 +241,7 @@ public class MainApplication extends javax.swing.JFrame
 
         open_board_button.setText(resources.getString("open_own_design"));
         open_board_button.setToolTipText(resources.getString("open_own_design_tooltip"));
-        open_board_button.addActionListener((java.awt.event.ActionEvent evt) -> {
-            open_board_design_action(evt);
-        });
+        open_board_button.addActionListener(this::open_board_design_action);
 
         gridbag.setConstraints(open_board_button, gridbag_constraints);
         if (add_buttons)
