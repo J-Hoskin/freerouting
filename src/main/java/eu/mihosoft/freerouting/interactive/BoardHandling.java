@@ -1483,7 +1483,7 @@ public class BoardHandling extends BoardHandlingImpl
     }
 
     /**
-     * Selects also all items belonging to a net of a currently selecte item.
+     * Selects also all items belonging to a net of a currently selected item.
      */
     public void extend_selection_to_whole_nets()
     {
@@ -1495,7 +1495,7 @@ public class BoardHandling extends BoardHandlingImpl
     }
 
     /**
-     * Selects also all items belonging to a component of a currently selecte item.
+     * Selects also all items belonging to a component of a currently selected item.
      */
     public void extend_selection_to_whole_components()
     {
