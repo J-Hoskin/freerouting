@@ -33,6 +33,8 @@ import eu.mihosoft.freerouting.autoroute.BatchFanout;
 import eu.mihosoft.freerouting.autoroute.BatchOptRoute;
 import eu.mihosoft.freerouting.logger.FRLogger;
 
+import java.util.List;
+
 /**
  * GUI interactive thread for the batch autorouter.
  *
@@ -150,32 +152,35 @@ public class BatchAutorouterThread extends InteractiveActionThread
 
     public void draw(java.awt.Graphics p_graphics)
     {
-        FloatLine curr_air_line = batch_autorouter.get_air_line();
-        if (curr_air_line != null)
-        {
-            FloatPoint[] draw_line = new FloatPoint[2];
-            draw_line[0] = curr_air_line.a;
-            draw_line[1] = curr_air_line.b;
-            // draw the incomplete
-            java.awt.Color draw_color = this.hdlg.graphics_context.get_incomplete_color();
-            double draw_width = Math.min (this.hdlg.get_routing_board().communication.get_resolution(Unit.MIL) * 3, 300);  // problem with low resolution on Kicad300;
-            this.hdlg.graphics_context.draw(draw_line, draw_width, draw_color, p_graphics, 1);
+        if(batch_autorouter.air_lines == null) return;
+        for(FloatLine airline : batch_autorouter.air_lines){
+            if (airline != null && airline.a != null && airline.b != null)
+            {
+                FloatPoint[] draw_line = new FloatPoint[2];
+                draw_line[0] = airline.a;
+                draw_line[1] = airline.b;
+                // draw the incomplete
+                java.awt.Color draw_color = this.hdlg.graphics_context.get_incomplete_color();
+                double draw_width = Math.min (this.hdlg.get_routing_board().communication.get_resolution(Unit.MIL) * 3, 300);  // problem with low resolution on Kicad300;
+                this.hdlg.graphics_context.draw(draw_line, draw_width, draw_color, p_graphics, 1);
+            }
+            FloatPoint current_opt_position = batch_opt_route.get_current_position();
+            int radius = 10 * this.hdlg.get_routing_board().rules.get_default_trace_half_width(0);
+            if (current_opt_position != null)
+            {
+                final int draw_width = 1;
+                java.awt.Color draw_color = this.hdlg.graphics_context.get_incomplete_color();
+                FloatPoint[] draw_points = new FloatPoint[2];
+                draw_points[0] = new FloatPoint(current_opt_position.x - radius, current_opt_position.y - radius);
+                draw_points[1] = new FloatPoint(current_opt_position.x + radius, current_opt_position.y + radius);
+                this.hdlg.graphics_context.draw(draw_points, draw_width, draw_color, p_graphics, 1);
+                draw_points[0] = new FloatPoint(current_opt_position.x + radius, current_opt_position.y - radius);
+                draw_points[1] = new FloatPoint(current_opt_position.x - radius, current_opt_position.y + radius);
+                this.hdlg.graphics_context.draw(draw_points, draw_width, draw_color, p_graphics, 1);
+                this.hdlg.graphics_context.draw_circle(current_opt_position, radius, draw_width, draw_color, p_graphics, 1);
+            }
         }
-        FloatPoint current_opt_position = batch_opt_route.get_current_position();
-        int radius = 10 * this.hdlg.get_routing_board().rules.get_default_trace_half_width(0);
-        if (current_opt_position != null)
-        {
-            final int draw_width = 1;
-            java.awt.Color draw_color = this.hdlg.graphics_context.get_incomplete_color();
-            FloatPoint[] draw_points = new FloatPoint[2];
-            draw_points[0] = new FloatPoint(current_opt_position.x - radius, current_opt_position.y - radius);
-            draw_points[1] = new FloatPoint(current_opt_position.x + radius, current_opt_position.y + radius);
-            this.hdlg.graphics_context.draw(draw_points, draw_width, draw_color, p_graphics, 1);
-            draw_points[0] = new FloatPoint(current_opt_position.x + radius, current_opt_position.y - radius);
-            draw_points[1] = new FloatPoint(current_opt_position.x - radius, current_opt_position.y + radius);
-            this.hdlg.graphics_context.draw(draw_points, draw_width, draw_color, p_graphics, 1);
-            this.hdlg.graphics_context.draw_circle(current_opt_position, radius, draw_width, draw_color, p_graphics, 1);
-        }
+        batch_autorouter.air_lines.clear();
     }
     private final BatchAutorouter batch_autorouter;
     private final BatchOptRoute batch_opt_route;

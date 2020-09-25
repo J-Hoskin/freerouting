@@ -21,10 +21,8 @@ package eu.mihosoft.freerouting.autoroute;
 import java.util.*;
 
 import eu.mihosoft.freerouting.board.*;
-import eu.mihosoft.freerouting.datastructures.TimeLimit;
 import eu.mihosoft.freerouting.datastructures.UndoableObjects;
 
-import eu.mihosoft.freerouting.geometry.planar.FloatPoint;
 import eu.mihosoft.freerouting.geometry.planar.FloatLine;
 
 import eu.mihosoft.freerouting.interactive.BoardHandling;
@@ -89,7 +87,7 @@ public class BatchAutorouter
         }
         else
         {
-            // remove prefered direction
+            // remove preferred direction
             this.trace_cost_arr = new AutorouteControl.ExpansionCostFactor[this.routing_board.get_layer_count()];
             for (int i = 0; i < this.trace_cost_arr.length; ++i)
             {
@@ -188,8 +186,8 @@ public class BatchAutorouter
     {
         try
         {
-            Collection<Item> autoroute_item_list = new java.util.LinkedList<Item>();
-            Set<Item> handeled_items = new TreeSet<Item>();
+            Collection<Item>[] segmented_autoroute_item_list = new java.util.LinkedList[routing_board.rules.nets.max_net_no()];
+            Set<Item> handled_items = new TreeSet<Item>();
             Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list.start_read_object();
             for (;;)
             {
@@ -203,74 +201,51 @@ public class BatchAutorouter
                     Item curr_item = (Item) curr_ob;
                     if (!curr_item.is_route())
                     {
-                        if (!handeled_items.contains(curr_item))
+                        if (!handled_items.contains(curr_item))
                         {
-                            for (int i = 0; i < curr_item.net_count(); ++i)
+                            int curr_net_no = curr_item.get_net_no(0);
+                            Set<Item> connected_set = curr_item.get_connected_set(curr_net_no);
+                            for (Item curr_connected_item : connected_set)
                             {
-                                int curr_net_no = curr_item.get_net_no(i);
-                                Set<Item> connected_set = curr_item.get_connected_set(curr_net_no);
-                                for (Item curr_connected_item : connected_set)
+                                if (curr_connected_item.net_count() <= 1)
                                 {
-                                    if (curr_connected_item.net_count() <= 1)
-                                    {
-                                        handeled_items.add(curr_connected_item);
-                                    }
+                                    handled_items.add(curr_connected_item);
                                 }
-                                int net_item_count = routing_board.connectable_item_count(curr_net_no);
-                                if (connected_set.size() < net_item_count)
-                                {
-                                    autoroute_item_list.add(curr_item);
+                            }
+                            int net_item_count = routing_board.connectable_item_count(curr_net_no);
+                            if (connected_set.size() < net_item_count)
+                            {
+                                if(segmented_autoroute_item_list[curr_net_no] == null){
+                                    segmented_autoroute_item_list[curr_net_no] = new LinkedList<Item>();
                                 }
+                                segmented_autoroute_item_list[curr_net_no].add(curr_item);
                             }
                         }
                     }
                 }
             }
-            if (autoroute_item_list.isEmpty())
+
+            if(segmented_autoroute_item_list[0] == null && segmented_autoroute_item_list[3] == null )
             {
-                this.air_line = null;
+                this.air_lines.clear();
                 return false;
             }
-            int items_to_go_count = autoroute_item_list.size();
-            int ripped_item_count = 0;
-            int not_found = 0;
-            int routed = 0;
-            if (p_with_screen_message)
-            {
-                hdlg.screen_messages.set_batch_autoroute_info(items_to_go_count, routed, ripped_item_count, not_found);
+
+            // Parallelize auto-routing of items
+            int NUM_THREADS = 4;
+            List<Thread> threads = new ArrayList<>();
+            for(int i =0; i < NUM_THREADS ; i++){
+                Thread thread = new Thread(new AutorouteItemThread(this, segmented_autoroute_item_list, p_pass_no, false, i));
+                threads.add(thread);
+                thread.start();
             }
-            for (Item curr_item : autoroute_item_list)
-            {
-                if (this.is_interrupted)
-                {
-                    break;
-                }
-                for (int i = 0; i < curr_item.net_count(); ++i)
-                {
-                    if (this.thread.is_stop_requested())
-                    {
-                        this.is_interrupted = true;
-                        break;
-                    }
-                    routing_board.start_marking_changed_area();
-                    SortedSet<Item> ripped_item_list = new TreeSet<Item>();
-                    if (autoroute_item(curr_item, curr_item.get_net_no(i), ripped_item_list, p_pass_no))
-                    {
-                        ++routed;
-                        hdlg.repaint();
-                    }
-                    else
-                    {
-                        ++not_found;
-                    }
-                    --items_to_go_count;
-                    ripped_item_count += ripped_item_list.size();
-                    if (p_with_screen_message)
-                    {
-                        hdlg.screen_messages.set_batch_autoroute_info(items_to_go_count, routed, ripped_item_count, not_found);
-                    }
-                }
+
+            for (Thread thread : threads) {
+                thread.join();
             }
+
+            System.out.println("SUCCESSFULLY THREADED!~");
+
             if (routing_board.get_test_level() != eu.mihosoft.freerouting.board.TestLevel.ALL_DEBUGGING_OUTPUT)
             {
                 Item.StopConnectionOption stop_connection_option;
@@ -284,11 +259,11 @@ public class BatchAutorouter
                 }
                 remove_tails(stop_connection_option);
             }
-            this.air_line = null;
+            this.air_lines.clear();
             return true;
         } catch (Exception e)
         {
-            this.air_line = null;
+            this.air_lines.clear();
             return false;
         }
     }
@@ -301,139 +276,44 @@ public class BatchAutorouter
                 this.trace_cost_arr, this.thread, TIME_LIMIT_TO_PREVENT_ENDLESS_LOOP);
     }
 
-    private boolean autoroute_item(Item p_item, int p_route_net_no, SortedSet<Item> p_ripped_item_list, int p_ripup_pass_no)
-    {
-        try
-        {
-            boolean contains_plane = false;
-            eu.mihosoft.freerouting.rules.Net route_net = routing_board.rules.nets.get(p_route_net_no);
-            if (route_net != null)
-            {
-                contains_plane = route_net.contains_plane();
-            }
-            int curr_via_costs;
-
-            if (contains_plane)
-            {
-                curr_via_costs = hdlg.get_settings().autoroute_settings.get_plane_via_costs();
-            }
-            else
-            {
-                curr_via_costs = hdlg.get_settings().autoroute_settings.get_via_costs();
-            }
-            AutorouteControl autoroute_control = new AutorouteControl(this.routing_board, p_route_net_no, hdlg.get_settings(), curr_via_costs, this.trace_cost_arr);
-            autoroute_control.ripup_allowed = true;
-            autoroute_control.ripup_costs = this.start_ripup_costs * p_ripup_pass_no;
-            autoroute_control.remove_unconnected_vias = this.remove_unconnected_vias;
-
-            Set<Item> unconnected_set = p_item.get_unconnected_set(p_route_net_no);
-            if (unconnected_set.size() == 0)
-            {
-                return true; // p_item is already routed.
-
-            }
-            Set<Item> connected_set = p_item.get_connected_set(p_route_net_no);
-            Set<Item> route_start_set;
-            Set<Item> route_dest_set;
-            if (contains_plane)
-            {
-                for (Item curr_item : connected_set)
-                {
-                    if (curr_item instanceof eu.mihosoft.freerouting.board.ConductionArea)
-                    {
-                        return true; // already connected to plane
-
-                    }
-                }
-            }
-            if (contains_plane)
-            {
-                route_start_set = connected_set;
-                route_dest_set = unconnected_set;
-            }
-            else
-            {
-                route_start_set = unconnected_set;
-                route_dest_set = connected_set;
-            }
-
-            calc_airline(route_start_set, route_dest_set);
-            double max_milliseconds = 100000 * Math.pow(2, p_ripup_pass_no - 1);
-            max_milliseconds = Math.min(max_milliseconds, Integer.MAX_VALUE);
-            TimeLimit time_limit = new TimeLimit((int) max_milliseconds);
-            AutorouteEngine autoroute_engine = routing_board.init_autoroute(p_route_net_no,
-                    autoroute_control.trace_clearance_class_no, this.thread, time_limit, this.retain_autoroute_database);
-            AutorouteEngine.AutorouteResult autoroute_result = autoroute_engine.autoroute_connection(route_start_set, route_dest_set, autoroute_control,
-                    p_ripped_item_list);
-            if (autoroute_result == AutorouteEngine.AutorouteResult.ROUTED)
-            {
-                routing_board.opt_changed_area(new int[0], null, this.hdlg.get_settings().get_trace_pull_tight_accuracy(), autoroute_control.trace_costs, this.thread, TIME_LIMIT_TO_PREVENT_ENDLESS_LOOP);
-            }
-            // eu.mihosoft.freerouting.tests.Validate.check("Autoroute  ", hdlg.get_routing_board());
-            boolean result = autoroute_result == AutorouteEngine.AutorouteResult.ROUTED || autoroute_result == AutorouteEngine.AutorouteResult.ALREADY_CONNECTED;
-            return result;
-        } catch (Exception e)
-        {
-            return false;
-        }
-    }
-
-    /**
-     *  Returns the airline of the current autorouted connnection or null,
-     *  if no such airline exists
-     */
-    public FloatLine get_air_line()
-    {
-        if (this.air_line == null)
-        {
-            return null;
-        }
-        if (this.air_line.a == null || this.air_line.b == null)
-        {
-            return null;
-        }
-        return this.air_line;
-    }
-
-    private void calc_airline(Collection<Item> p_from_items, Collection<Item> p_to_items)
-    {
-        FloatPoint from_corner = null;
-        FloatPoint to_corner = null;
-        double min_distance = Double.MAX_VALUE;
-        for (Item curr_from_item : p_from_items)
-        {
-            if (!(curr_from_item instanceof DrillItem))
-            {
-                continue;
-            }
-            FloatPoint curr_from_corner = ((DrillItem) curr_from_item).get_center().to_float();
-            for (Item curr_to_item : p_to_items)
-            {
-                if (!(curr_to_item instanceof DrillItem))
-                {
-                    continue;
-                }
-                FloatPoint curr_to_corner = ((DrillItem) curr_to_item).get_center().to_float();
-                double curr_distance = curr_from_corner.distance_square(curr_to_corner);
-                if (curr_distance < min_distance)
-                {
-                    min_distance = curr_distance;
-                    from_corner = curr_from_corner;
-                    to_corner = curr_to_corner;
-                }
-            }
-        }
-        this.air_line = new FloatLine(from_corner, to_corner);
-    }
-    private final InteractiveActionThread thread;
-    private final BoardHandling hdlg;
-    private final RoutingBoard routing_board;
+    public final InteractiveActionThread thread;
+    public final BoardHandling hdlg;
+    public final RoutingBoard routing_board;
     private boolean is_interrupted = false;
-    private final boolean remove_unconnected_vias;
-    private final AutorouteControl.ExpansionCostFactor[] trace_cost_arr;
-    private final boolean retain_autoroute_database;
-    private final int start_ripup_costs;
-    /** Used to draw the airline of the current routed incomplete. */
-    private FloatLine air_line = null;
-    private static final int TIME_LIMIT_TO_PREVENT_ENDLESS_LOOP = 1000;
+    public final boolean remove_unconnected_vias;
+    public final AutorouteControl.ExpansionCostFactor[] trace_cost_arr;
+    public final boolean retain_autoroute_database;
+    public final int start_ripup_costs;
+    /** Used to draw the airline of the current incomplete route. */
+    public List<FloatLine> air_lines = new ArrayList<>();
+    public static final int TIME_LIMIT_TO_PREVENT_ENDLESS_LOOP = 1000;
+
+    public boolean is_interrupted() {
+        return is_interrupted;
+    }
+
+    public void set_is_interrupted(boolean is_interrupted) {
+        this.is_interrupted = is_interrupted;
+    }
+
+    int items_to_go_count;
+    int ripped_item_count;
+    int not_found;
+    int routed;
+
+    synchronized public void decrementItemsToGoCount() {
+        this.items_to_go_count--;
+    }
+
+    synchronized public void addRippedItemCount(int ripped_item_count_increase) {
+        this.ripped_item_count += ripped_item_count_increase;
+    }
+
+    synchronized public void incrementNotFound() {
+        this.not_found++;
+    }
+
+    synchronized public void incrementRouted() {
+        this.routed++;
+    }
 }
