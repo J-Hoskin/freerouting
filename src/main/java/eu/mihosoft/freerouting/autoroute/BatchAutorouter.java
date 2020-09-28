@@ -28,6 +28,8 @@ import eu.mihosoft.freerouting.geometry.planar.FloatLine;
 import eu.mihosoft.freerouting.interactive.BoardHandling;
 import eu.mihosoft.freerouting.interactive.InteractiveActionThread;
 import eu.mihosoft.freerouting.logger.FRLogger;
+import eu.mihosoft.freerouting.rules.Net;
+import eu.mihosoft.freerouting.rules.Nets;
 
 /**
  * Handles the sequencing of the batch autoroute passes.
@@ -186,56 +188,46 @@ public class BatchAutorouter
     {
         try
         {
-            Collection<Item>[] segmented_autoroute_item_list = new java.util.LinkedList[routing_board.rules.nets.max_net_no()];
+            ArrayList<Collection<Item>> segmented_autoroute_item_list = new ArrayList<>();
             Set<Item> handled_items = new TreeSet<Item>();
-            Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list.start_read_object();
-            for (;;)
-            {
-                UndoableObjects.Storable curr_ob = routing_board.item_list.read_object(it);
-                if (curr_ob == null)
-                {
-                    break;
-                }
-                if (curr_ob instanceof Connectable && curr_ob instanceof Item)
-                {
-                    Item curr_item = (Item) curr_ob;
-                    if (!curr_item.is_route())
-                    {
-                        if (!handled_items.contains(curr_item))
+            Nets nets = routing_board.rules.nets;
+
+            for (int n = 1; n < nets.max_net_no(); n++){
+                Net net = nets.get(n);
+                LinkedList<Item> items_in_net_to_route = new LinkedList<>();
+                for (Item item : net.get_items()){
+                    if (item instanceof Connectable && !item.is_route() && !handled_items.contains(item)){
+                        Set<Item> connected_set = item.get_connected_set(net.net_number);
+                        for (Item curr_connected_item : connected_set)
                         {
-                            int curr_net_no = curr_item.get_net_no(0);
-                            Set<Item> connected_set = curr_item.get_connected_set(curr_net_no);
-                            for (Item curr_connected_item : connected_set)
+                            if (curr_connected_item.net_count() <= 1)
                             {
-                                if (curr_connected_item.net_count() <= 1)
-                                {
-                                    handled_items.add(curr_connected_item);
-                                }
+                                handled_items.add(curr_connected_item);
                             }
-                            int net_item_count = routing_board.connectable_item_count(curr_net_no);
-                            if (connected_set.size() < net_item_count)
-                            {
-                                if(segmented_autoroute_item_list[curr_net_no] == null){
-                                    segmented_autoroute_item_list[curr_net_no] = new LinkedList<Item>();
-                                }
-                                segmented_autoroute_item_list[curr_net_no].add(curr_item);
-                            }
+                        }
+                        int net_item_count = routing_board.connectable_item_count(net.net_number);
+                        if (connected_set.size() < net_item_count)
+                        {
+                            items_in_net_to_route.add(item);
                         }
                     }
                 }
+                if (items_in_net_to_route.size() > 0){
+                    segmented_autoroute_item_list.add(items_in_net_to_route);
+                }
             }
 
-            if(segmented_autoroute_item_list[0] == null && segmented_autoroute_item_list[3] == null )
+            if(segmented_autoroute_item_list.size() == 0)
             {
                 this.air_lines.clear();
                 return false;
             }
 
             // Parallelize auto-routing of items
-            int NUM_THREADS = 4;
+            int NUM_THREADS = 8;
             List<Thread> threads = new ArrayList<>();
             for(int i =0; i < NUM_THREADS ; i++){
-                Thread thread = new Thread(new AutorouteItemThread(this, segmented_autoroute_item_list, p_pass_no, false, i));
+                Thread thread = new Thread(new AutorouteItemThread(this, segmented_autoroute_item_list, p_pass_no, false, i, NUM_THREADS));
                 threads.add(thread);
                 thread.start();
             }
