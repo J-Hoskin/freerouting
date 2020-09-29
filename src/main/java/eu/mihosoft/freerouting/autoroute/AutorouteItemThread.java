@@ -26,7 +26,6 @@ public class AutorouteItemThread implements Runnable {
         this.NUM_THREADS = p_NUM_THREADS;
     }
 
-    // TODO: ADD UI PROGRESS INFO BACK
     public void run(){
         int itemsPerThread = (items_to_route.size() + NUM_THREADS - 1) / NUM_THREADS;
         int startIndex = itemsPerThread * this.threadId;
@@ -35,7 +34,7 @@ public class AutorouteItemThread implements Runnable {
         for (int i = startIndex; i < endIndex; i++)
         {
             if(this.items_to_route.get(i) == null) continue;
-            if (with_screen_message)
+            if (this.with_screen_message)
             {
                 batch_autorouter.hdlg.screen_messages.set_batch_autoroute_info(batch_autorouter.items_to_go_count, batch_autorouter.routed, batch_autorouter.ripped_item_count, batch_autorouter.not_found);
             }
@@ -61,7 +60,7 @@ public class AutorouteItemThread implements Runnable {
                 }
                 batch_autorouter.decrementItemsToGoCount();
                 batch_autorouter.ripped_item_count += ripped_item_list.size();
-                if (with_screen_message)
+                if (this.with_screen_message)
                 {
                     batch_autorouter.hdlg.screen_messages.set_batch_autoroute_info(batch_autorouter.items_to_go_count, batch_autorouter.routed, batch_autorouter.ripped_item_count, batch_autorouter.not_found);
                 }

@@ -209,6 +209,7 @@ public class BatchAutorouter
                         if (connected_set.size() < net_item_count)
                         {
                             items_in_net_to_route.add(item);
+                            items_to_go_count++;
                         }
                     }
                 }
@@ -227,7 +228,7 @@ public class BatchAutorouter
             int NUM_THREADS = 8;
             List<Thread> threads = new ArrayList<>();
             for(int i =0; i < NUM_THREADS ; i++){
-                Thread thread = new Thread(new AutorouteItemThread(this, segmented_autoroute_item_list, p_pass_no, false, i, NUM_THREADS));
+                Thread thread = new Thread(new AutorouteItemThread(this, segmented_autoroute_item_list, p_pass_no, p_with_screen_message, i, NUM_THREADS));
                 threads.add(thread);
                 thread.start();
             }
@@ -235,8 +236,6 @@ public class BatchAutorouter
             for (Thread thread : threads) {
                 thread.join();
             }
-
-            System.out.println("SUCCESSFULLY THREADED!~");
 
             if (routing_board.get_test_level() != eu.mihosoft.freerouting.board.TestLevel.ALL_DEBUGGING_OUTPUT)
             {
