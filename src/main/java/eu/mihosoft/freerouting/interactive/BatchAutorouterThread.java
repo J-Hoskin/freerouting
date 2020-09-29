@@ -33,6 +33,7 @@ import eu.mihosoft.freerouting.autoroute.BatchFanout;
 import eu.mihosoft.freerouting.autoroute.BatchOptRoute;
 import eu.mihosoft.freerouting.logger.FRLogger;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -152,8 +153,9 @@ public class BatchAutorouterThread extends InteractiveActionThread
 
     public void draw(java.awt.Graphics p_graphics)
     {
-        if(batch_autorouter.air_lines == null) return;
-        for(FloatLine airline : batch_autorouter.air_lines){
+        List<FloatLine> float_lines = batch_autorouter.get_air_lines();
+        if(float_lines == null) return;
+        for(FloatLine airline : float_lines){
             if (airline != null && airline.a != null && airline.b != null)
             {
                 FloatPoint[] draw_line = new FloatPoint[2];
@@ -180,7 +182,6 @@ public class BatchAutorouterThread extends InteractiveActionThread
                 this.hdlg.graphics_context.draw_circle(current_opt_position, radius, draw_width, draw_color, p_graphics, 1);
             }
         }
-        batch_autorouter.air_lines.clear();
     }
     private final BatchAutorouter batch_autorouter;
     private final BatchOptRoute batch_opt_route;

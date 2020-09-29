@@ -277,8 +277,18 @@ public class BatchAutorouter
     public final boolean retain_autoroute_database;
     public final int start_ripup_costs;
     /** Used to draw the airline of the current incomplete route. */
-    public List<FloatLine> air_lines = new ArrayList<>();
+    private List<FloatLine> air_lines = new ArrayList<>();
     public static final int TIME_LIMIT_TO_PREVENT_ENDLESS_LOOP = 1000;
+
+    public List<FloatLine> get_air_lines() {
+        List<FloatLine> float_lines = new ArrayList<>(air_lines);
+        air_lines.clear();
+        return float_lines;
+    }
+
+    public void add_air_line(FloatLine p_air_line) {
+        air_lines.add(p_air_line);
+    }
 
     public boolean is_interrupted() {
         return is_interrupted;

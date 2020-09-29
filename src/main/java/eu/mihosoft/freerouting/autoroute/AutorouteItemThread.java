@@ -168,7 +168,7 @@ public class AutorouteItemThread implements Runnable {
                 }
             }
         }
-        batch_autorouter.air_lines.add(new FloatLine(from_corner, to_corner));
+        batch_autorouter.add_air_line(new FloatLine(from_corner, to_corner));
     }
 
     synchronized private static AutorouteEngine.AutorouteResult findAndRoute(BatchAutorouter batch_autorouter, int p_route_net_no, TimeLimit time_limit, AutorouteControl autoroute_control, Set<Item> route_start_set,
