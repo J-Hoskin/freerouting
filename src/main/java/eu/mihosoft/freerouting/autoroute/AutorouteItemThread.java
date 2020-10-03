@@ -9,7 +9,7 @@ import eu.mihosoft.freerouting.geometry.planar.FloatPoint;
 import java.util.*;
 
 public class AutorouteItemThread implements Runnable {
-    ArrayList<Collection<Item>> items_to_route;
+    ArrayList<ArrayList<Item>> items_to_route;
     BatchAutorouter batch_autorouter;
     boolean with_screen_message;
     int pass_no;
@@ -17,7 +17,7 @@ public class AutorouteItemThread implements Runnable {
     int NUM_THREADS;
 
 
-    public AutorouteItemThread(BatchAutorouter p_batch_autorouter, ArrayList<Collection<Item>> p_items_to_route, int p_pass_no, boolean p_with_screen_message, int p_threadId, int p_NUM_THREADS){
+    public AutorouteItemThread(BatchAutorouter p_batch_autorouter, ArrayList<ArrayList<Item>> p_items_to_route, int p_pass_no, boolean p_with_screen_message, int p_threadId, int p_NUM_THREADS){
         this.items_to_route = p_items_to_route;
         this.batch_autorouter = p_batch_autorouter;
         this.with_screen_message = p_with_screen_message;

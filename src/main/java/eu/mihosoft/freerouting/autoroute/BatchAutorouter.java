@@ -18,6 +18,7 @@
  */
 package eu.mihosoft.freerouting.autoroute;
 
+import java.sql.Array;
 import java.util.*;
 
 import eu.mihosoft.freerouting.board.*;
@@ -188,37 +189,57 @@ public class BatchAutorouter
     {
         try
         {
-            ArrayList<Collection<Item>> segmented_autoroute_item_list = new ArrayList<>();
-            Set<Item> handled_items = new TreeSet<Item>();
-            Nets nets = routing_board.rules.nets;
-
-            for (int n = 1; n < nets.max_net_no(); n++){
-                Net net = nets.get(n);
-                LinkedList<Item> items_in_net_to_route = new LinkedList<>();
-                for (Item item : net.get_items()){
-                    if (item instanceof Connectable && !item.is_route() && !handled_items.contains(item)){
-                        Set<Item> connected_set = item.get_connected_set(net.net_number);
-                        for (Item curr_connected_item : connected_set)
+            ArrayList<Item>[] autoroute_item_list = new ArrayList[routing_board.rules.nets.max_net_no()];
+            Set<Item> handeled_items = new TreeSet<Item>();
+            Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list.start_read_object();
+            for (;;)
+            {
+                UndoableObjects.Storable curr_ob = routing_board.item_list.read_object(it);
+                if (curr_ob == null)
+                {
+                    break;
+                }
+                if (curr_ob instanceof Connectable && curr_ob instanceof Item)
+                {
+                    Item curr_item = (Item) curr_ob;
+                    if (!curr_item.is_route())
+                    {
+                        if (!handeled_items.contains(curr_item))
                         {
-                            if (curr_connected_item.net_count() <= 1)
+                            for (int i = 0; i < curr_item.net_count(); ++i)
                             {
-                                handled_items.add(curr_connected_item);
+                                int curr_net_no = curr_item.get_net_no(i);
+                                Set<Item> connected_set = curr_item.get_connected_set(curr_net_no);
+                                for (Item curr_connected_item : connected_set)
+                                {
+                                    if (curr_connected_item.net_count() <= 1)
+                                    {
+                                        handeled_items.add(curr_connected_item);
+                                    }
+                                }
+                                int net_item_count = routing_board.connectable_item_count(curr_net_no);
+                                if (connected_set.size() < net_item_count)
+                                {
+                                    if(autoroute_item_list[curr_net_no-1] == null){
+                                        autoroute_item_list[curr_net_no-1] = new ArrayList<>();
+                                    }
+                                    autoroute_item_list[curr_net_no-1].add(curr_item);
+                                }
                             }
-                        }
-                        int net_item_count = routing_board.connectable_item_count(net.net_number);
-                        if (connected_set.size() < net_item_count)
-                        {
-                            items_in_net_to_route.add(item);
-                            items_to_go_count++;
                         }
                     }
                 }
-                if (items_in_net_to_route.size() > 0){
-                    segmented_autoroute_item_list.add(items_in_net_to_route);
-                }
             }
 
-            if(segmented_autoroute_item_list.size() == 0)
+            ArrayList<ArrayList<Item>> segmented_autoroute_item_list = new ArrayList<>();
+            for(ArrayList<Item> list : autoroute_item_list){
+                if(list == null){
+                    continue;
+                }
+                segmented_autoroute_item_list.add(list);
+            }
+
+            if (segmented_autoroute_item_list.isEmpty())
             {
                 this.air_lines.clear();
                 return false;
