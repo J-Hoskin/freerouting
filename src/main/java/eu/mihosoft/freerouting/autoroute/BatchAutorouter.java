@@ -20,6 +20,9 @@ package eu.mihosoft.freerouting.autoroute;
 
 import java.sql.Array;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import eu.mihosoft.freerouting.board.*;
 import eu.mihosoft.freerouting.datastructures.UndoableObjects;
@@ -191,7 +194,7 @@ public class BatchAutorouter
         {
             ArrayList<Item>[] autoroute_item_list = new ArrayList[routing_board.rules.nets.max_net_no()];
             Set<Item> handeled_items = new TreeSet<Item>();
-            Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list.start_read_object();
+            Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list;
             for (;;)
             {
                 UndoableObjects.Storable curr_ob = routing_board.item_list.read_object(it);
@@ -246,16 +249,18 @@ public class BatchAutorouter
             }
 
             // Parallelize auto-routing of items
-            int NUM_THREADS = 8;
-            List<Thread> threads = new ArrayList<>();
             for(int i =0; i < NUM_THREADS ; i++){
                 Thread thread = new Thread(new AutorouteItemThread(this, segmented_autoroute_item_list, p_pass_no, p_with_screen_message, i, NUM_THREADS));
-                threads.add(thread);
-                thread.start();
+                threadPool.execute(thread);
             }
 
-            for (Thread thread : threads) {
-                thread.join();
+            threadPool.shutdown();
+
+            try {
+                threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                threadPool.shutdownNow();
+                Thread.currentThread().interrupt();
             }
 
             if (routing_board.get_test_level() != eu.mihosoft.freerouting.board.TestLevel.ALL_DEBUGGING_OUTPUT)
@@ -299,6 +304,8 @@ public class BatchAutorouter
     /** Used to draw the airline of the current incomplete route. */
     private List<FloatLine> air_lines = new ArrayList<>();
     public static final int TIME_LIMIT_TO_PREVENT_ENDLESS_LOOP = 1000;
+    public int NUM_THREADS = 8;
+    public ExecutorService threadPool = Executors.newFixedThreadPool(NUM_THREADS);
 
     public List<FloatLine> get_air_lines() {
         List<FloatLine> float_lines = new ArrayList<>(air_lines);
