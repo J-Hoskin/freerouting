@@ -194,7 +194,7 @@ public class BatchAutorouter
         {
             ArrayList<Item>[] autoroute_item_list = new ArrayList[routing_board.rules.nets.max_net_no()];
             Set<Item> handeled_items = new TreeSet<Item>();
-            Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list;
+            Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list.start_read_object();
             for (;;)
             {
                 UndoableObjects.Storable curr_ob = routing_board.item_list.read_object(it);
