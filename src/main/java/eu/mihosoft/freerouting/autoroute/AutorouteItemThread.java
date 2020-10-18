@@ -34,10 +34,6 @@ public class AutorouteItemThread implements Runnable {
         for (int i = startIndex; i < endIndex; i++)
         {
             if(this.items_to_route.get(i) == null) continue;
-            if (this.with_screen_message)
-            {
-                batch_autorouter.hdlg.screen_messages.set_batch_autoroute_info(batch_autorouter.items_to_go_count, batch_autorouter.routed, batch_autorouter.ripped_item_count, batch_autorouter.not_found);
-            }
             for(Item curr_item : this.items_to_route.get(i)){
                 if (batch_autorouter.is_interrupted()) {
                     break;

@@ -227,6 +227,7 @@ public class BatchAutorouter
                                         autoroute_item_list[curr_net_no-1] = new ArrayList<>();
                                     }
                                     autoroute_item_list[curr_net_no-1].add(curr_item);
+                                    this.items_to_go_count++;
                                 }
                             }
                         }
@@ -248,6 +249,10 @@ public class BatchAutorouter
                 return false;
             }
 
+            if (p_with_screen_message)
+            {
+                hdlg.screen_messages.set_batch_autoroute_info(items_to_go_count, routed, ripped_item_count, not_found);
+            }
             // Parallelize auto-routing of items
             for(int i =0; i < NUM_THREADS ; i++){
                 Thread thread = new Thread(new AutorouteItemThread(this, segmented_autoroute_item_list, p_pass_no, p_with_screen_message, i, NUM_THREADS));
