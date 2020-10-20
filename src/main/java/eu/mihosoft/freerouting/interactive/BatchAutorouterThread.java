@@ -163,7 +163,7 @@ public class BatchAutorouterThread extends InteractiveActionThread
                 draw_line[1] = airline.b;
                 // draw the incomplete
                 java.awt.Color draw_color = this.hdlg.graphics_context.get_incomplete_color();
-                double draw_width = Math.min (this.hdlg.get_routing_board().communication.get_resolution(Unit.MIL) * 3, 300);  // problem with low resolution on Kicad300;
+                double draw_width = Math.min (this.hdlg.get_routing_board().communication.get_resolution(Unit.MIL) * 3, 300);
                 this.hdlg.graphics_context.draw(draw_line, draw_width, draw_color, p_graphics, 1);
             }
             FloatPoint current_opt_position = batch_opt_route.get_current_position();

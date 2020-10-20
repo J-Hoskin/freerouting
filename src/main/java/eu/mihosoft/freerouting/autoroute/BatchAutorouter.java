@@ -192,58 +192,49 @@ public class BatchAutorouter
     {
         try
         {
-            ArrayList<Item>[] autoroute_item_list = new ArrayList[routing_board.rules.nets.max_net_no()];
+            int max_net_no = routing_board.rules.nets.max_net_no();
+            Vector<Collection<Item>> autoroute_item_list = new  Vector<Collection<Item>>(max_net_no);
             Set<Item> handeled_items = new TreeSet<Item>();
-            Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list.start_read_object();
-            for (;;)
+            for (int i = 0; i < max_net_no; ++i)
             {
-                UndoableObjects.Storable curr_ob = routing_board.item_list.read_object(it);
-                if (curr_ob == null)
+                autoroute_item_list.add(new LinkedList<Item>());
+            }
+            Iterator<UndoableObjects.UndoableObjectNode> it = routing_board.item_list.start_read_object();
+            for(;;)
+            {
+                Item curr_item = (Item) routing_board.item_list.read_object(it);
+                if (curr_item == null)
                 {
                     break;
                 }
-                if (curr_ob instanceof Connectable && curr_ob instanceof Item)
+                if (curr_item instanceof Connectable && !curr_item.is_route() && !handeled_items.contains(curr_item))
                 {
-                    Item curr_item = (Item) curr_ob;
-                    if (!curr_item.is_route())
+                    for (int i = 0; i < curr_item.net_count(); ++i)
                     {
-                        if (!handeled_items.contains(curr_item))
+                        int curr_net_no = curr_item.get_net_no(i);
+                        Set<Item> connected_set = curr_item.get_connected_set(curr_net_no);
+                        for (Item curr_connected_item : connected_set)
                         {
-                            for (int i = 0; i < curr_item.net_count(); ++i)
+                            if (curr_connected_item.net_count() <= 1)
                             {
-                                int curr_net_no = curr_item.get_net_no(i);
-                                Set<Item> connected_set = curr_item.get_connected_set(curr_net_no);
-                                for (Item curr_connected_item : connected_set)
-                                {
-                                    if (curr_connected_item.net_count() <= 1)
-                                    {
-                                        handeled_items.add(curr_connected_item);
-                                    }
-                                }
-                                int net_item_count = routing_board.connectable_item_count(curr_net_no);
-                                if (connected_set.size() < net_item_count)
-                                {
-                                    if(autoroute_item_list[curr_net_no-1] == null){
-                                        autoroute_item_list[curr_net_no-1] = new ArrayList<>();
-                                    }
-                                    autoroute_item_list[curr_net_no-1].add(curr_item);
-                                    this.items_to_go_count++;
-                                }
+                                handeled_items.add(curr_connected_item);
                             }
+                        }
+                        int net_item_count = routing_board.connectable_item_count(curr_net_no);
+                        if (connected_set.size() < net_item_count)
+                        {
+                            autoroute_item_list.get(curr_net_no-1).add(curr_item);
+                            this.items_to_go_count++;
                         }
                     }
                 }
             }
-
-            ArrayList<ArrayList<Item>> segmented_autoroute_item_list = new ArrayList<>();
-            for(ArrayList<Item> list : autoroute_item_list){
-                if(list == null){
-                    continue;
-                }
-                segmented_autoroute_item_list.add(list);
+            for (Collection<Item> net : new Vector<>(autoroute_item_list))
+            {
+                if(net.size() == 0) autoroute_item_list.remove(net);
             }
 
-            if (segmented_autoroute_item_list.isEmpty())
+            if (autoroute_item_list.isEmpty())
             {
                 this.air_lines.clear();
                 return false;
@@ -255,7 +246,7 @@ public class BatchAutorouter
             }
             // Parallelize auto-routing of items
             for(int i =0; i < NUM_THREADS ; i++){
-                Thread thread = new Thread(new AutorouteItemThread(this, segmented_autoroute_item_list, p_pass_no, p_with_screen_message, i, NUM_THREADS));
+                Thread thread = new Thread(new AutorouteItemThread(this, autoroute_item_list, p_pass_no, p_with_screen_message, i, NUM_THREADS));
                 threadPool.execute(thread);
             }
 
@@ -306,18 +297,17 @@ public class BatchAutorouter
     public final AutorouteControl.ExpansionCostFactor[] trace_cost_arr;
     public final boolean retain_autoroute_database;
     public final int start_ripup_costs;
-    /** Used to draw the airline of the current incomplete route. */
-    private List<FloatLine> air_lines = new ArrayList<>();
     public static final int TIME_LIMIT_TO_PREVENT_ENDLESS_LOOP = 1000;
     public int NUM_THREADS = 8;
     public ExecutorService threadPool = Executors.newFixedThreadPool(NUM_THREADS);
 
+    /** Used to draw the airline of the current incomplete route. */
+    private List<FloatLine> air_lines = new ArrayList<>();
     public List<FloatLine> get_air_lines() {
         List<FloatLine> float_lines = new ArrayList<>(air_lines);
         air_lines.clear();
         return float_lines;
     }
-
     public void add_air_line(FloatLine p_air_line) {
         air_lines.add(p_air_line);
     }
@@ -338,16 +328,12 @@ public class BatchAutorouter
     synchronized public void decrementItemsToGoCount() {
         this.items_to_go_count--;
     }
-
     synchronized public void addRippedItemCount(int ripped_item_count_increase) {
         this.ripped_item_count += ripped_item_count_increase;
     }
-
-    synchronized public void incrementNotFound() {
-        this.not_found++;
-    }
-
+    synchronized public void incrementNotFound() { this.not_found++; }
     synchronized public void incrementRouted() {
         this.routed++;
     }
+
 }
