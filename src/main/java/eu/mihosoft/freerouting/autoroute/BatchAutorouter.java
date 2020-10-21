@@ -229,6 +229,8 @@ public class BatchAutorouter
                     }
                 }
             }
+
+            // Remove nets which have no items to prevent threads being given unequal work
             for (Collection<Item> net : new Vector<>(autoroute_item_list))
             {
                 if(net.size() == 0) autoroute_item_list.remove(net);
@@ -301,7 +303,7 @@ public class BatchAutorouter
     public int NUM_THREADS = 8;
     public ExecutorService threadPool = Executors.newFixedThreadPool(NUM_THREADS);
 
-    /** Used to draw the airline of the current incomplete route. */
+    /** Used to draw the airline of the current incomplete routes. */
     private List<FloatLine> air_lines = new ArrayList<>();
     public List<FloatLine> get_air_lines() {
         List<FloatLine> float_lines = new ArrayList<>(air_lines);
