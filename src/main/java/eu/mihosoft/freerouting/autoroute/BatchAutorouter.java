@@ -233,7 +233,7 @@ public class BatchAutorouter
             // Remove nets which have no items to prevent threads being given unequal work
             for (Collection<Item> net : new Vector<>(autoroute_item_list))
             {
-                if(net.size() == 0) autoroute_item_list.remove(net);
+                if(net.size() <= 1) autoroute_item_list.remove(net);
             }
 
             if (autoroute_item_list.isEmpty())
