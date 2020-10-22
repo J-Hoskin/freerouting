@@ -247,18 +247,14 @@ public class BatchAutorouter
                 hdlg.screen_messages.set_batch_autoroute_info(items_to_go_count, routed, ripped_item_count, not_found);
             }
             // Parallelize auto-routing of items
+            List<Thread> threads = new ArrayList<>();
             for(int i =0; i < NUM_THREADS ; i++){
                 Thread thread = new Thread(new AutorouteItemThread(this, autoroute_item_list, p_pass_no, p_with_screen_message, i, NUM_THREADS));
-                threadPool.execute(thread);
+                threads.add(thread);
+                thread.start();
             }
-
-            threadPool.shutdown();
-
-            try {
-                threadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-            } catch (InterruptedException e) {
-                threadPool.shutdownNow();
-                Thread.currentThread().interrupt();
+            for(Thread thread : threads){
+                thread.join();
             }
 
             if (routing_board.get_test_level() != eu.mihosoft.freerouting.board.TestLevel.ALL_DEBUGGING_OUTPUT)

@@ -7,6 +7,7 @@ import eu.mihosoft.freerouting.geometry.planar.FloatLine;
 import eu.mihosoft.freerouting.geometry.planar.FloatPoint;
 
 import java.util.*;
+import java.util.concurrent.Callable;
 
 public class AutorouteItemThread implements Runnable {
     Vector<Collection<Item>> items_to_route;
@@ -56,7 +57,7 @@ public class AutorouteItemThread implements Runnable {
                     batch_autorouter.incrementNotFound();
                 }
                 batch_autorouter.decrementItemsToGoCount();
-                batch_autorouter.ripped_item_count += ripped_item_list.size();
+                batch_autorouter.addRippedItemCount(ripped_item_list.size());
                 if (this.with_screen_message)
                 {
                     batch_autorouter.hdlg.screen_messages.set_batch_autoroute_info(batch_autorouter.items_to_go_count, batch_autorouter.routed, batch_autorouter.ripped_item_count, batch_autorouter.not_found);
